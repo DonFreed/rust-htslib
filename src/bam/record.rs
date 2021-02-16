@@ -8,7 +8,6 @@ use std::ffi;
 use std::fmt;
 use std::mem::{size_of, MaybeUninit};
 use std::ops;
-use std::rc::Rc;
 use std::slice;
 use std::str;
 use std::str::FromStr;
@@ -26,7 +25,6 @@ use crate::utils;
 use serde::{self, Deserialize, Serialize};
 
 use bio_types::alignment::{Alignment, AlignmentMode, AlignmentOperation};
-use bio_types::genome;
 use bio_types::sequence::SequenceRead;
 use bio_types::sequence::SequenceReadPairOrientation;
 use bio_types::strand::ReqStrand;
@@ -53,7 +51,6 @@ pub struct Record {
     pub inner: htslib::bam1_t,
     own: bool,
     cigar: Option<CigarStringView>,
-    header: Option<Rc<HeaderView>>,
 }
 
 unsafe impl Send for Record {}
@@ -117,7 +114,6 @@ impl Record {
             inner: unsafe { MaybeUninit::zeroed().assume_init() },
             own: true,
             cigar: None,
-            header: None,
         }
     }
 
@@ -137,7 +133,6 @@ impl Record {
             },
             own: false,
             cigar: None,
-            header: None,
         }
     }
 
@@ -170,10 +165,6 @@ impl Record {
                 rec: str::from_utf8(&sam_copy).unwrap().to_owned(),
             })
         }
-    }
-
-    pub fn set_header(&mut self, header: Rc<HeaderView>) {
-        self.header = Some(header);
     }
 
     pub(super) fn data(&self) -> &[u8] {
@@ -775,39 +766,6 @@ impl SequenceRead for Record {
 
     fn is_empty(&self) -> bool {
         self.len() == 0
-    }
-}
-
-impl genome::AbstractInterval for Record {
-    /// Return contig name. Panics if record does not know its header (which happens if it has not been read from a file).
-    fn contig(&self) -> &str {
-        let tid = self.tid();
-        if tid < 0 {
-            panic!("invalid tid, must be at least zero");
-        }
-        str::from_utf8(
-            self.header
-                .as_ref()
-                .expect(
-                    "header must be set (this is the case if the record has been read from a file)",
-                )
-                .tid2name(tid as u32),
-        )
-        .expect("unable to interpret contig name as UTF-8")
-    }
-
-    /// Return genomic range covered by alignment. Panics if `Record::cache_cigar()` has not been called first or `Record::pos()` is less than zero.
-    fn range(&self) -> ops::Range<genome::Position> {
-        let end_pos = self
-            .cigar_cached()
-            .expect("cigar has not been cached yet, call cache_cigar() first")
-            .end_pos() as u64;
-
-        if self.pos() < 0 {
-            panic!("invalid position, must be positive")
-        }
-
-        self.pos() as u64..end_pos
     }
 }
 

@@ -344,8 +344,6 @@ impl Read for Reader {
             -2 => Some(Err(Error::BamTruncatedRecord)),
             -4 => Some(Err(Error::BamInvalidRecord)),
             _ => {
-                record.set_header(Rc::clone(&self.header));
-
                 Some(Ok(()))
             }
         }
@@ -782,8 +780,6 @@ impl Read for IndexedReader {
                     -2 => Some(Err(Error::BamTruncatedRecord)),
                     -4 => Some(Err(Error::BamInvalidRecord)),
                     _ => {
-                        record.set_header(Rc::clone(&self.header));
-
                         Some(Ok(()))
                     }
                 }
